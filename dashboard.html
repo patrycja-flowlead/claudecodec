@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lemlist Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f6f8fa; --surface: #ffffff; --border: #d0d7de;
+    --text: #1f2328; --muted: #656d76; --accent: #0969da;
+    --success: #1a7f37; --success-bg: #dafbe1;
+    --warn-bg: #fff8c5; --warn: #9a6700;
+    --danger: #d1242f; --danger-bg: #ffebe9;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  header h1 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  header h1 svg { color: var(--accent); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+  .dot.on { background: #1a7f37; }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+  .connect-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 24px; }
+  .connect-card h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+  .field-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; }
+  .field label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .field input { height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s; }
+  .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(9,105,218,0.1); }
+  button { height: 36px; padding: 0 18px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.12s; white-space: nowrap; }
+  button:hover { background: var(--bg); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { background: #0860ca; }
+  .status { font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .status.err { color: var(--danger); }
+  .status.ok { color: var(--success); }
+  .section { display: none; }
+  .section.visible { display: block; }
+  .campaigns-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 24px; }
+  .campaigns-card h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+  .camp-list { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
+  .camp-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: background 0.1s; }
+  .camp-item:hover { background: var(--bg); }
+  .camp-item.active { border-color: var(--accent); background: #f0f6ff; }
+  .camp-name { font-weight: 500; font-size: 14px; }
+  .camp-id { font-size: 12px; color: var(--muted); margin-top: 2px; font-family: monospace; }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+  .badge-active { background: var(--success-bg); color: var(--success); }
+  .badge-paused { background: var(--warn-bg); color: var(--warn); }
+  .badge-draft { background: #f6f8fa; color: var(--muted); border: 1px solid var(--border); }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .metric .m-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .metric .m-val { font-size: 24px; font-weight: 600; color: var(--text); }
+  .metric .m-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; }
+  .chart-card h3 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+  .funnel-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .f-label { font-size: 13px; color: var(--muted); width: 68px; text-align: right; flex-shrink: 0; }
+  .f-track { flex: 1; height: 22px; background: var(--bg); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+  .f-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 8px; transition: width 0.5s ease; }
+  .f-fill span { font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .f-count { font-size: 12px; color: var(--muted); width: 48px; text-align: right; flex-shrink: 0; }
+  .act-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+  .act-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg); border-radius: var(--radius); font-size: 13px; }
+  .act-email { font-weight: 500; }
+  .act-type { color: var(--muted); margin-left: 8px; }
+  .act-date { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .empty { text-align: center; padding: 2rem; color: var(--muted); font-size: 13px; }
+  .loading { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.86 9.11 19.79 19.79 0 01.79 .5 2 2 0 012.77 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.11 6.11l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+    Lemlist Dashboard
+  </h1>
+  <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-label">Not connected</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="connect-card">
+    <h2>Connect</h2>
+    <div class="field-row">
+      <div class="field">
+        <label>Lemlist API Key</label>
+        <input type="password" id="api-key" placeholder="Paste your API key here" />
+      </div>
+      <button class="primary" onclick="connect()">Connect</button>
+    </div>
+    <div class="status" id="st"></div>
+  </div>
+
+  <div class="section" id="camp-section">
+    <div class="campaigns-card">
+      <h2>Campaigns</h2>
+      <div class="camp-list" id="camp-list"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <div class="section" id="stats-section">
+    <div class="metrics" id="metrics"></div>
+    <div class="two-col">
+      <div class="chart-card">
+        <h3>Engagement funnel</h3>
+        <div id="funnel"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Activity breakdown</h3>
+        <div style="position:relative;height:210px;"><canvas id="actChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Recent activities</h3>
+      <div class="act-list" id="acts"><div class="empty">Select a campaign</div></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+let API_KEY = '';
+let chartInst = null;
+
+function setStatus(msg, cls) {
+  const el = document.getElementById('st');
+  el.textContent = msg;
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function apiFetch(path) {
+  const r = await fetch(path, { headers: { 'x-api-key': API_KEY } });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function connect() {
+  API_KEY = document.getElementById('api-key').value.trim();
+  if (!API_KEY) { setStatus('Please enter your API key.', 'err'); return; }
+  setStatus('Connecting…');
+  try {
+    const data = await apiFetch('/api/campaigns');
+    const list = Array.isArray(data) ? data : [];
+    setStatus('Connected — ' + list.length + ' campaign' + (list.length !== 1 ? 's' : '') + ' found.', 'ok');
+    document.getElementById('status-dot').className = 'dot on';
+    document.getElementById('status-label').textContent = 'Connected';
+    document.getElementById('camp-section').className = 'section visible';
+    renderCampaigns(list);
+  } catch(e) {
+    setStatus('Connection failed. Check your API key.', 'err');
+  }
+}
+
+function renderCampaigns(list) {
+  const el = document.getElementById('camp-list');
+  if (!list.length) { el.innerHTML = '<div class="empty">No campaigns found.</div>'; return; }
+  el.innerHTML = '';
+  list.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'camp-item';
+    const bCls = c.status === 'active' ? 'badge-active' : c.status === 'paused' ? 'badge-paused' : 'badge-draft';
+    d.innerHTML = `
+      <div>
+        <div class="camp-name">${esc(c.name || c._id)}</div>
+        <div class="camp-id">${esc(c._id)}</div>
+      </div>
+      <span class="badge ${bCls}">${esc(c.status || 'unknown')}</span>
+    `;
+    d.onclick = () => {
+      document.querySelectorAll('.camp-item').forEach(i => i.classList.remove('active'));
+      d.classList.add('active');
+      loadStats(c._id);
+    };
+    el.appendChild(d);
+  });
+}
+
+async function loadStats(id) {
+  document.getElementById('stats-section').className = 'section visible';
+  document.getElementById('metrics').innerHTML = '<div class="loading">Loading stats…</div>';
+  document.getElementById('funnel').innerHTML = '';
+  document.getElementById('acts').innerHTML = '<div class="empty">Loading…</div>';
+
+  try {
+    const s = await apiFetch('/api/campaigns/' + id + '/stats');
+    renderMetrics(s);
+    renderFunnel(s);
+    renderChart(s);
+  } catch(e) {
+    document.getElementById('metrics').innerHTML = '<div style="color:var(--danger);font-size:13px;">Failed to load stats.</div>';
+  }
+
+  try {
+    const acts = await apiFetch('/api/activities?campaignId=' + id + '&limit=20');
+    renderActivities(Array.isArray(acts) ? acts : (acts.results || []));
+  } catch(e) {
+    document.getElementById('acts').innerHTML = '<div class="empty">Could not load activities.</div>';
+  }
+}
+
+function renderMetrics(s) {
+  const sent = s.emailsSent || 0;
+  const opened = s.emailsOpened || 0;
+  const clicked = s.emailsClicked || 0;
+  const replied = s.emailsReplied || 0;
+  const bounced = s.emailsBounced || 0;
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric"><div class="m-label">Sent</div><div class="m-val">${sent.toLocaleString()}</div></div>
+    <div class="metric"><div class="m-label">Opened</div><div class="m-val">${opened.toLocaleString()}</div><div class="m-sub">${(s.openRate||0).toFixed(1)}% open rate</div></div>
+    <div class="metric"><div class="m-label">Clicked</div><div class="m-val">${clicked.toLocaleString()}</div><div class="m-sub">${(s.clickRate||0).toFixed(1)}% of opened</div></div>
+    <div class="metric"><div class="m-label">Replied</div><div class="m-val">${replied.toLocaleString()}</div><div class="m-sub">${(s.replyRate||0).toFixed(1)}% reply rate</div></div>
+    <div class="metric"><div class="m-label">Bounced</div><div class="m-val">${bounced.toLocaleString()}</div></div>
+  `;
+}
+
+function renderFunnel(s) {
+  const stages = [
+    { label: 'Sent',    key: 'emailsSent',    bg: '#378ADD', color: '#042C53' },
+    { label: 'Opened',  key: 'emailsOpened',  bg: '#1D9E75', color: '#04342C' },
+    { label: 'Clicked', key: 'emailsClicked', bg: '#534AB7', color: '#EEEDFE' },
+    { label: 'Replied', key: 'emailsReplied', bg: '#D85A30', color: '#4A1B0C' },
+  ];
+  const max = s.emailsSent || 1;
+  const wrap = document.getElementById('funnel');
+  wrap.innerHTML = '';
+  stages.forEach(st => {
+    const val = s[st.key] || 0;
+    const pct = Math.min(100, Math.round(val / max * 100));
+    const row = document.createElement('div');
+    row.className = 'funnel-row';
+    row.innerHTML = `
+      <div class="f-label">${st.label}</div>
+      <div class="f-track"><div class="f-fill" style="width:${pct}%;background:${st.bg};"><span style="color:${st.color};">${pct}%</span></div></div>
+      <div class="f-count">${val.toLocaleString()}</div>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
+function renderChart(s) {
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+  chartInst = new Chart(document.getElementById('actChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Sent', 'Opened', 'Clicked', 'Replied', 'Bounced'],
+      datasets: [{
+        data: [s.emailsSent||0, s.emailsOpened||0, s.emailsClicked||0, s.emailsReplied||0, s.emailsBounced||0],
+        backgroundColor: ['#378ADD','#1D9E75','#534AB7','#D85A30','#E24B4A'],
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+}
+
+function renderActivities(items) {
+  const el = document.getElementById('acts');
+  if (!items.length) { el.innerHTML = '<div class="empty">No activities found.</div>'; return; }
+  el.innerHTML = '';
+  items.slice(0, 20).forEach(a => {
+    const d = document.createElement('div');
+    d.className = 'act-item';
+    const email = esc(a.leadEmail || a.email || '—');
+    const type = esc((a.type || '').replace(/([A-Z])/g, ' $1').trim().toLowerCase());
+    const date = a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '';
+    d.innerHTML = `<div><span class="act-email">${email}</span><span class="act-type">${type}</span></div><div class="act-date">${date}</div>`;
+    el.appendChild(d);
+  });
+}
+
+document.getElementById('api-key').addEventListener('keydown', e => {
+  if (e.key === 'Enter') connect();
+});
+</script>
+</body>
+</html>

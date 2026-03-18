@@ -2,10 +2,11 @@ import base64
 import httpx
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse
+from pathlib import Path
 from typing import Optional
 
-app = FastAPI(title="Lemlist API Proxy")
+app = FastAPI(title="Lemlist Dashboard")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,6 +21,12 @@ LEMLIST_BASE = "https://api.lemlist.com"
 def make_auth_header(api_key: str) -> str:
     encoded = base64.b64encode(f"lemlist:{api_key}".encode()).decode()
     return f"Basic {encoded}"
+
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_dashboard():
+    html = Path("dashboard.html").read_text()
+    return HTMLResponse(content=html)
 
 
 @app.get("/api/campaigns")
@@ -72,7 +79,6 @@ async def list_activities(
 
 @app.get("/api/campaigns/{campaign_id}/stats")
 async def get_campaign_stats(campaign_id: str, x_api_key: str = Header(...)):
-    """Aggregate key stats for a campaign in one call."""
     stat_types = [
         "emailsSent", "emailsOpened", "emailsClicked",
         "emailsReplied", "emailsBounced", "leadsAdded",
