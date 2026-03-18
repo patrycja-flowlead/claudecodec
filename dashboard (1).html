@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lemlist Campaign Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f6f8fa; --surface: #fff; --border: #d0d7de;
+    --text: #1f2328; --muted: #656d76; --accent: #0969da;
+    --success: #1a7f37; --success-bg: #dafbe1;
+    --warn-bg: #fff8c5; --warn: #9a6700;
+    --danger: #cf222e; --danger-bg: #ffebe9;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+  /* ── Header ── */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; height: 54px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 200; }
+  .logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .conn-badge { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #d0d7de; flex-shrink: 0; }
+  .dot.on { background: #1a7f37; }
+
+  /* ── Layout ── */
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px; }
+  .card-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
+
+  /* ── Connect form ── */
+  .field-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 220px; }
+  .field label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  input[type=password], input[type=text] { height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; color: var(--text); background: var(--surface); outline: none; width: 100%; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(9,105,218,0.12); }
+  button { height: 36px; padding: 0 16px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+  button:hover { background: var(--bg); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { background: #0757ba; }
+  button.ghost { border-color: var(--border); color: var(--muted); }
+  .status { font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .status.err { color: var(--danger); }
+  .status.ok { color: var(--success); }
+
+  /* ── KPI strip ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .kpi-val { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1.1; }
+  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .kpi-good .kpi-val { color: #1a7f37; }
+  .kpi-warn .kpi-val { color: #9a6700; }
+
+  /* ── Campaign table ── */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  thead th.num { text-align: right; }
+  tbody tr { border-bottom: 1px solid var(--bg); cursor: pointer; transition: background 0.1s; }
+  tbody tr:hover { background: #f0f6ff; }
+  tbody tr.selected { background: #dbeafe; }
+  tbody td { padding: 10px 12px; vertical-align: middle; }
+  tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .camp-name-cell { font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; display: inline-block; }
+  .b-active { background: var(--success-bg); color: var(--success); }
+  .b-paused { background: var(--warn-bg); color: var(--warn); }
+  .b-draft  { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+  .bar-cell { min-width: 80px; }
+  .mini-bar { height: 6px; border-radius: 3px; background: var(--bg); overflow: hidden; border: 1px solid var(--border); }
+  .mini-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.4s; }
+  .rate-pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
+  .rate-hi { background: var(--success-bg); color: var(--success); }
+  .rate-md { background: var(--warn-bg); color: var(--warn); }
+  .rate-lo { background: var(--danger-bg); color: var(--danger); }
+
+  /* ── Detail panel ── */
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .detail-grid { grid-template-columns: 1fr; } }
+  .funnel-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .f-lbl { font-size: 12px; color: var(--muted); width: 64px; text-align: right; flex-shrink: 0; }
+  .f-track { flex: 1; height: 20px; background: var(--bg); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+  .f-fill  { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 7px; transition: width 0.5s; }
+  .f-fill span { font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .f-cnt { font-size: 12px; color: var(--muted); width: 44px; text-align: right; flex-shrink: 0; }
+  .act-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+  .act-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; background: var(--bg); border-radius: 6px; font-size: 12px; }
+  .act-email { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+  .act-type  { color: var(--muted); margin-left: 6px; }
+  .act-date  { color: var(--muted); white-space: nowrap; }
+
+  /* ── Toolbar ── */
+  .toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .toolbar-left { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  select { height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; color: var(--text); background: var(--surface); outline: none; cursor: pointer; }
+
+  .hidden { display: none !important; }
+  .empty { text-align: center; padding: 2rem; color: var(--muted); font-size: 13px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0969da" stroke-width="2.2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    Lemlist Campaign Report
+  </div>
+  <div class="conn-badge">
+    <div class="dot" id="dot"></div>
+    <span id="conn-label">Not connected</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Connect -->
+  <div class="card" id="connect-card">
+    <div class="card-title">Connect to Lemlist</div>
+    <div class="field-row">
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="api-key" placeholder="Paste your Lemlist API key" />
+      </div>
+      <button class="primary" onclick="connect()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zm.93 6.588l-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM8 5.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
+        Connect
+      </button>
+    </div>
+    <div class="status" id="st"></div>
+  </div>
+
+  <!-- KPI strip -->
+  <div id="kpi-section" class="hidden">
+    <div class="kpi-grid" id="kpi-grid"></div>
+  </div>
+
+  <!-- Campaign table -->
+  <div id="table-section" class="hidden">
+    <div class="card">
+      <div class="toolbar">
+        <div class="card-title" style="margin:0;">Campaign performance</div>
+        <div class="toolbar-left">
+          <select id="filter-status" onchange="applyFilter()">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="draft">Draft</option>
+          </select>
+          <select id="sort-by" onchange="applyFilter()">
+            <option value="sent">Sort: Sent</option>
+            <option value="openRate">Sort: Open rate</option>
+            <option value="replyRate">Sort: Reply rate</option>
+            <option value="name">Sort: Name</option>
+          </select>
+          <button onclick="exportCSV()">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+            Export CSV
+          </button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Campaign</th>
+              <th>Status</th>
+              <th class="num">Sent</th>
+              <th class="num">Opens</th>
+              <th class="num">Open %</th>
+              <th class="num">Replies</th>
+              <th class="num">Reply %</th>
+              <th class="num">Clicks</th>
+              <th class="num">Bounced</th>
+              <th>Progress</th>
+            </tr>
+          </thead>
+          <tbody id="camp-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail panel -->
+  <div id="detail-section" class="hidden">
+    <div class="card">
+      <div class="toolbar">
+        <div class="card-title" style="margin:0;" id="detail-title">Campaign detail</div>
+        <button class="ghost" onclick="closeDetail()">✕ Close</button>
+      </div>
+      <div class="detail-grid">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Engagement funnel</div>
+          <div id="funnel"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Breakdown</div>
+          <div style="position:relative;height:200px;"><canvas id="det-chart"></canvas></div>
+        </div>
+      </div>
+      <div style="margin-top:20px;">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Recent activities</div>
+        <div class="act-list" id="acts"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+let API_KEY = '';
+let allCampaigns = [];
+let statsCache = {};
+let detChart = null;
+
+/* ── helpers ── */
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(n){ return Number(n||0).toLocaleString(); }
+function pct(n){ return Number(n||0).toFixed(1)+'%'; }
+function ratePill(v){
+  const n=parseFloat(v||0);
+  const cls = n>=30?'rate-hi':n>=10?'rate-md':'rate-lo';
+  return `<span class="rate-pill ${cls}">${pct(n)}</span>`;
+}
+
+async function apiFetch(path){
+  const r = await fetch(path,{headers:{'x-api-key':API_KEY}});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+/* ── connect ── */
+async function connect(){
+  API_KEY = document.getElementById('api-key').value.trim();
+  if(!API_KEY){ setStatus('Please enter your API key.','err'); return; }
+  setStatus('Connecting…','');
+  try {
+    const data = await apiFetch('/api/campaigns');
+    allCampaigns = Array.isArray(data) ? data : [];
+    setStatus('Connected — '+allCampaigns.length+' campaigns found.','ok');
+    document.getElementById('dot').className='dot on';
+    document.getElementById('conn-label').textContent='Connected';
+    await loadAllStats();
+  } catch(e){
+    setStatus('Connection failed. Check your API key.','err');
+  }
+}
+
+function setStatus(msg,cls){
+  const el=document.getElementById('st');
+  el.textContent=msg; el.className='status'+(cls?' '+cls:'');
+}
+
+/* ── load all stats upfront ── */
+async function loadAllStats(){
+  setStatus('Loading campaign stats…','');
+  await Promise.all(allCampaigns.map(async c => {
+    try { statsCache[c._id] = await apiFetch('/api/campaigns/'+c._id+'/stats'); }
+    catch{ statsCache[c._id] = {emailsSent:0,emailsOpened:0,emailsClicked:0,emailsReplied:0,emailsBounced:0,openRate:0,replyRate:0,clickRate:0}; }
+  }));
+  setStatus('','');
+  renderKPIs();
+  applyFilter();
+  document.getElementById('kpi-section').classList.remove('hidden');
+  document.getElementById('table-section').classList.remove('hidden');
+}
+
+/* ── KPI strip ── */
+function renderKPIs(){
+  const totals = allCampaigns.reduce((acc,c)=>{
+    const s=statsCache[c._id]||{};
+    acc.sent   += s.emailsSent   ||0;
+    acc.opened += s.emailsOpened ||0;
+    acc.replied+= s.emailsReplied||0;
+    acc.clicked+= s.emailsClicked||0;
+    acc.bounced+= s.emailsBounced||0;
+    return acc;
+  },{sent:0,opened:0,replied:0,clicked:0,bounced:0});
+
+  const openRate  = totals.sent ? (totals.opened /totals.sent*100).toFixed(1) : 0;
+  const replyRate = totals.sent ? (totals.replied/totals.sent*100).toFixed(1) : 0;
+  const active    = allCampaigns.filter(c=>c.status==='active').length;
+
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Total sent</div><div class="kpi-val">${fmt(totals.sent)}</div><div class="kpi-sub">across ${allCampaigns.length} campaigns</div></div>
+    <div class="kpi"><div class="kpi-label">Total opens</div><div class="kpi-val">${fmt(totals.opened)}</div><div class="kpi-sub">${openRate}% avg open rate</div></div>
+    <div class="kpi"><div class="kpi-label">Total replies</div><div class="kpi-val">${fmt(totals.replied)}</div><div class="kpi-sub">${replyRate}% avg reply rate</div></div>
+    <div class="kpi"><div class="kpi-label">Total clicks</div><div class="kpi-val">${fmt(totals.clicked)}</div></div>
+    <div class="kpi"><div class="kpi-label">Bounced</div><div class="kpi-val">${fmt(totals.bounced)}</div></div>
+    <div class="kpi"><div class="kpi-label">Active campaigns</div><div class="kpi-val kpi-good">${active}</div><div class="kpi-sub">of ${allCampaigns.length} total</div></div>
+  `;
+}
+
+/* ── table ── */
+function applyFilter(){
+  const statusF = document.getElementById('filter-status').value;
+  const sortBy  = document.getElementById('sort-by').value;
+
+  let list = allCampaigns.filter(c => !statusF || c.status===statusF);
+
+  list.sort((a,b)=>{
+    const sa=statsCache[a._id]||{}, sb=statsCache[b._id]||{};
+    if(sortBy==='name') return (a.name||'').localeCompare(b.name||'');
+    if(sortBy==='openRate')  return (sb.openRate||0)-(sa.openRate||0);
+    if(sortBy==='replyRate') return (sb.replyRate||0)-(sa.replyRate||0);
+    return (sb.emailsSent||0)-(sa.emailsSent||0);
+  });
+
+  const maxSent = Math.max(1, ...list.map(c=>(statsCache[c._id]||{}).emailsSent||0));
+  const tbody = document.getElementById('camp-tbody');
+  tbody.innerHTML = '';
+
+  if(!list.length){
+    tbody.innerHTML='<tr><td colspan="10" class="empty">No campaigns match this filter.</td></tr>';
+    return;
+  }
+
+  list.forEach(c=>{
+    const s=statsCache[c._id]||{};
+    const sent=s.emailsSent||0, opened=s.emailsOpened||0, replied=s.emailsReplied||0;
+    const clicked=s.emailsClicked||0, bounced=s.emailsBounced||0;
+    const barW = Math.round(sent/maxSent*100);
+    const bCls = c.status==='active'?'b-active':c.status==='paused'?'b-paused':'b-draft';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="camp-name-cell" title="${esc(c.name||c._id)}">${esc(c.name||c._id)}</td>
+      <td><span class="badge ${bCls}">${esc(c.status||'—')}</span></td>
+      <td class="num">${fmt(sent)}</td>
+      <td class="num">${fmt(opened)}</td>
+      <td class="num">${ratePill(s.openRate)}</td>
+      <td class="num">${fmt(replied)}</td>
+      <td class="num">${ratePill(s.replyRate)}</td>
+      <td class="num">${fmt(clicked)}</td>
+      <td class="num">${fmt(bounced)}</td>
+      <td class="bar-cell"><div class="mini-bar"><div class="mini-fill" style="width:${barW}%"></div></div></td>
+    `;
+    tr.onclick=()=>openDetail(c);
+    tbody.appendChild(tr);
+  });
+}
+
+/* ── detail panel ── */
+async function openDetail(c){
+  document.querySelectorAll('tbody tr').forEach(r=>r.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+
+  const s = statsCache[c._id]||{};
+  document.getElementById('detail-title').textContent = c.name||c._id;
+  document.getElementById('detail-section').classList.remove('hidden');
+  document.getElementById('acts').innerHTML='<div class="empty">Loading…</div>';
+
+  renderFunnel(s);
+  renderDetChart(s);
+
+  try{
+    const acts = await apiFetch('/api/activities?campaignId='+c._id+'&limit=20');
+    renderActivities(Array.isArray(acts)?acts:(acts.results||[]));
+  }catch{ document.getElementById('acts').innerHTML='<div class="empty">Could not load activities.</div>'; }
+
+  document.getElementById('detail-section').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function closeDetail(){
+  document.getElementById('detail-section').classList.add('hidden');
+  document.querySelectorAll('tbody tr').forEach(r=>r.classList.remove('selected'));
+}
+
+function renderFunnel(s){
+  const stages=[
+    {label:'Sent',   key:'emailsSent',    bg:'#378ADD',color:'#042C53'},
+    {label:'Opened', key:'emailsOpened',  bg:'#1D9E75',color:'#04342C'},
+    {label:'Clicked',key:'emailsClicked', bg:'#534AB7',color:'#EEEDFE'},
+    {label:'Replied',key:'emailsReplied', bg:'#D85A30',color:'#4A1B0C'},
+  ];
+  const max=s.emailsSent||1;
+  const wrap=document.getElementById('funnel');
+  wrap.innerHTML='';
+  stages.forEach(st=>{
+    const val=s[st.key]||0;
+    const p=Math.min(100,Math.round(val/max*100));
+    const row=document.createElement('div');
+    row.className='funnel-row';
+    row.innerHTML=`<div class="f-lbl">${st.label}</div><div class="f-track"><div class="f-fill" style="width:${p}%;background:${st.bg};"><span style="color:${st.color};">${p}%</span></div></div><div class="f-cnt">${fmt(val)}</div>`;
+    wrap.appendChild(row);
+  });
+}
+
+function renderDetChart(s){
+  if(detChart){detChart.destroy();detChart=null;}
+  detChart=new Chart(document.getElementById('det-chart'),{
+    type:'bar',
+    data:{
+      labels:['Sent','Opened','Clicked','Replied','Bounced'],
+      datasets:[{
+        data:[s.emailsSent||0,s.emailsOpened||0,s.emailsClicked||0,s.emailsReplied||0,s.emailsBounced||0],
+        backgroundColor:['#378ADD','#1D9E75','#534AB7','#D85A30','#E24B4A'],
+        borderRadius:5,borderSkipped:false
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(0,0,0,0.05)'}}}}
+  });
+}
+
+function renderActivities(items){
+  const el=document.getElementById('acts');
+  if(!items.length){el.innerHTML='<div class="empty">No activities found.</div>';return;}
+  el.innerHTML='';
+  items.slice(0,20).forEach(a=>{
+    const d=document.createElement('div');
+    d.className='act-item';
+    const email=esc(a.leadEmail||a.email||'—');
+    const type=esc((a.type||'').replace(/([A-Z])/g,' $1').trim().toLowerCase());
+    const date=a.createdAt?new Date(a.createdAt).toLocaleDateString():'';
+    d.innerHTML=`<div><span class="act-email">${email}</span><span class="act-type">${type}</span></div><div class="act-date">${date}</div>`;
+    el.appendChild(d);
+  });
+}
+
+/* ── CSV export ── */
+function exportCSV(){
+  const statusF=document.getElementById('filter-status').value;
+  let list=allCampaigns.filter(c=>!statusF||c.status===statusF);
+  const rows=[['Campaign','Status','Sent','Opened','Open Rate %','Replied','Reply Rate %','Clicked','Click Rate %','Bounced']];
+  list.forEach(c=>{
+    const s=statsCache[c._id]||{};
+    rows.push([
+      c.name||c._id, c.status||'',
+      s.emailsSent||0, s.emailsOpened||0, (s.openRate||0).toFixed(1),
+      s.emailsReplied||0, (s.replyRate||0).toFixed(1),
+      s.emailsClicked||0, (s.clickRate||0).toFixed(1),
+      s.emailsBounced||0
+    ]);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='lemlist-campaigns-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+document.getElementById('api-key').addEventListener('keydown',e=>{if(e.key==='Enter')connect();});
+</script>
+</body>
+</html>
